@@ -1,0 +1,147 @@
+# docker-compose.yml
+# Версия формата докеркомпоуза. 3.8 - стабильная
+version: '3.8'
+#
+# Блок services - описание всех контейнеров
+services:
+  #
+  nginx:
+    # Блок build - как собирать образ
+    build:
+      # Путь к докерфайлу
+      context: ./nginx
+      # Имя докерфайла
+      dockerfile: Dockerfile
+      # Можно передать аргументы сборки по типу версии образа
+      #args:
+      #- NGINX_VERSION=1.21-alpine
+      #
+      # Имя создаваемое при сборке образа
+    image: analyzer/nginx_to_analyzer:1.0
+    # Имя создаваемого при сборке контейнера
+    container_name: nginx_to_analyzer_container
+    #
+    # Блок с пробросом портов в контейнер
+    # Первое - порт хоста, второе - порт внутри контейнера
+    ports:
+      # HTTP
+      - "80:5173"
+      # HTTPS - Пока что не используем
+      #- "443:8443"
+      #
+      # Можно смонтировать папки с хоста в контейнер
+      # Уже сделал это в самом докерфайле
+      #volumes:
+      #- ./nginx/conf.d:/etc/nginx/conf.d:ro #ro - read only
+      #
+      # Переменные окрежения для конейнера
+    environment:
+      # Максимальное количество ядер nginx из общего .env
+      - NGINX_MAX_CPU=${NGINX_MAX_CPU:-4}
+      # Явная передача
+      - NGINX_HOST=${NGINX_HOST:-localhost}
+      - NGINX_PORT=${NGINX_PORT:-5173}
+      # Данные для подключения к Redis
+      - REDIS_HOST=${REDIS_HOST:-redis_host}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - COLLECTOR_URL=${COLLECTOR_URL:-http://localhost:462/event}
+    #
+    # Указание от каких контейнеров зависит nginx - чей запуск ожидать 
+    # перед собственным
+    depends_on:
+      - redis_to_analyzer
+      - collector
+    #
+    # Какие сети докеркомпоуза использует контейнер
+    networks:
+      - analyzer_network
+    #
+    # Указание места хранения логов. Докер сам создаст volume на хосте
+    # Плюс монтирование lua скриптов. ro - только для чтения
+    volumes:
+      - nginx-logs:/var/log/nginx
+      - ./nginx/lua:/etc/nginx/lua:ro
+    #
+    # Политика перезагрузки
+    # Всегда перезапускать, кроме явной остановки
+    restart: unless-stopped
+  #
+  # Базовый контейнер с Redis
+  redis_to_analyzer:
+    image: redis:7.4-alpine
+    #
+    container_name: redis_to_analyzer_container
+    #
+    # Сейчас запуск простой командой, в будущем надо будет переписать на докерфайл
+    # redis-server - исполняемый файл редиса
+    # --appendonly yes - включени AOF-журналирования
+    ## Хоть функции долгосрочного хранения данных выполняет PostgreSQL, при сбоях редиса, 
+    ##   значительно быстрее востановить данные из AOF-журнала, чем обращаться к постгресу
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    #
+    ports:
+      - "6379:6379" # Потом переделать на получение из .env
+    #
+    volumes:
+      - redis-data:/data
+    #
+    networks:
+      - analyzer_network
+    #
+    restart: unless-stopped
+    #
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  #
+  # Базовый контейнер с PostgreSQL для долгосрочного хранения
+  postgres:
+    image: postgres:16-alpine
+    #
+    container_name: postgres_to_analyzer_container
+    #
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # Базовые настройки, которые намертво вшиваются в СУБД при запуске
+      ## Кодировка (важно для анализируемого трафика) - UTF-8
+      ## Правило сортировки строк - --lc-collate=C - побайтовая сортировка (быстрее обычной)
+      ## Правило классификации символов - --lc-ctype=C - без обработки регистров, но быстрее
+      - POSTGRES_INITDB_AGRS=UTF-8 --lc-collate=C --lc-ctype=C
+    #
+    ports:
+      - "5432:5432"
+    #
+
+    #
+    # Описание volumes 
+volumes:
+  #
+  # Логи nginx
+  nginx-logs:
+    name: nginx-logs-volume
+  #
+  # Хранилище AOF-журналов Redis
+  redis-data:
+    name: redis-data-volume
+#
+# Описание сетей
+networks:
+  analyzer_network:
+    # bridge - закрытая сеть на одном хосте. Внутри сети компоуза каждый 
+    #   сервис будет иметь свой ip
+    # host - без сетевой изоляции. Будет занимать порт адреса хоста
+    # overlay - соединяет несколько хостов с Docker между собой
+    # macvlan - каждый контейнер будет иметь свой мак адрес, будет как 
+    #   отдельный сетевой адаптер в ОС хоста
+    # ipvlan - аналог macvlan, только все контейнеры будут иметь общий мак
+    # none - полностью отключить сеть для контейнера
+    driver: bridge
+    #
+    # Опционально - параметры сети
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
