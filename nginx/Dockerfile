@@ -60,7 +60,7 @@ COPY entrypoint.sh /entrypoint.sh
 # Сделать его исполняемым
 RUN chmod +x /entrypoint.sh
 # Сделать исполняемым nginx_healthcheck.sh
-RUN chmod +x /nginx_healthcheck.sh
+RUN chmod +x /etc/nginx/nginx_healthcheck.sh
 #
 # Сменить пользователя перед хилтчеком
 USER nginx
@@ -69,7 +69,7 @@ USER nginx
 # Если контейнер вернёт ошибку 3 раза подряд, ему присвоиться статус unhealthy и 
 # уже какие-то средства вне контейнера будут его перезапускать
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD /nginx_healthcheck.sh
+    CMD /etc/nginx/nginx_healthcheck.sh
 #
 # Команды CMD будут выполняться при запуске контейнера
 # deamon off - указание nginx работать не в фоне. Процессы в линуксе работаю в фоне # или на переднем плане (захватывают терминал). Nginx как и некоторые процессы по 

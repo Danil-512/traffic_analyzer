@@ -97,14 +97,14 @@ fi
 # \${} - экранирование. Без \ баш подумал бы что это переменная
 # /etc/nginx/nginx.conf.template - входной файл
 # /etc/nginx/nginx.conf - выходной генерируемый файл
-sed "s|\${WORKER_PROCESSES}|$WORKERS|g" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+sed "s|\${WORKER_PROCESSES}|$WORKERS|g" /etc/nginx/nginx.conf.template > /tmp/nginx.conf
 #
 # Подставить порт и хост из переменной окружения
-sed -i "s|\${NGINX_PORT}|${NGINX_PORT:-5173}|g" /etc/nginx/nginx.conf
-sed -i "s|\${NGINX_HOST}|${NGINX_HOST:-localhost}|g" /etc/nginx/nginx.conf
+sed -i "s|\${NGINX_PORT}|${NGINX_PORT:-5173}|g" /tmp/nginx.conf
+sed -i "s|\${NGINX_HOST}|${NGINX_HOST:-localhost}|g" /tmp/nginx.conf
 #
 # Проверка, был ли создан nginx.conf
-if [ ! -f /etc/nginx/nginx.conf ]; then
+if [ ! -f /tmp/nginx.conf ]; then
   echo "Не создан файл nginx.conf!"
   #
   exit 1
@@ -112,7 +112,7 @@ fi
 #
 # Проверка корректности конфигурации
 echo "Проверка конфигурации nginx"
-nginx -t
+nginx -t -c /tmp/nginx.conf
 #
 # Присвоение ответа переменной. $? - ответ последней команды
 NGINX_CHECK=$?
@@ -133,5 +133,4 @@ echo "Конфигурация nginx корректна"
 #      поверх основного конфига
 #   daemon off - команда nginx не уходить в фоновый режим, чтобы контейнер не
 #      завершился
-exec nginx -g "daemon off;"
-
+exec nginx -c /tmp/nginx.conf -g "daemon off;"

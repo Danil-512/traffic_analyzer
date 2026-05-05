@@ -1,9 +1,84 @@
 # docker-compose.yml
-# Версия формата докеркомпоуза. 3.8 - стабильная
-version: '3.8'
 #
 # Блок services - описание всех контейнеров
 services:
+  #
+  # Коллектор логов
+  collector_service:
+    build:
+      context: .
+      dockerfile: CollectorService/Dockerfile
+      #
+      args:
+        - SERVICE_PORT=${COLLECTOR_SERVICE_PORT:-5001}
+    #
+    container_name: collector_to_analyzer_container
+    #
+    restart: always
+    #
+    environment:
+      - SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
+      - COLLECTOR_SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
+      # Для работы с RabbitMQ
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_VHOST=${RABBITMQ_DEFAULT_VHOST:-/}
+      #
+      # HTTP порт для healthcheck - внутри Worker Service мини http сервер
+      - ASPNETCORE_URLS=http://0.0.0.0:${COLLECTOR_SERVICE_PORT:-5001}
+      #
+      # TCP порт для приёма логов от Nginx
+      - COLLECTOR_TCP_PORT=6000
+      #
+      # Логирование
+      - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
+    #
+    # Лимиты ресурсов
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    #
+    volumes:
+      # Логи приложения
+      - collector_service_logs:/app/logs
+    #
+    networks:
+      - analyzer_network
+    #
+    # Зависимость от RabbitMQ
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    #
+    # Health check для сервиса
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${COLLECTOR_SERVICE_PORT:-5001}/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    #
+    # Логи docker контейнера
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    #
+    ports:
+      # http для хилтчека
+      - "${COLLECTOR_SERVICE_PORT}:${COLLECTOR_SERVICE_PORT:-5001}"
+      # Для TCP от nginx
+      - "6000:6000"
+  #
+  #
   #
   nginx:
     # Блок build - как собирать образ
@@ -42,15 +117,18 @@ services:
       - NGINX_HOST=${NGINX_HOST:-localhost}
       - NGINX_PORT=${NGINX_PORT:-5173}
       # Данные для подключения к Redis
-      - REDIS_HOST=${REDIS_HOST:-redis_host}
+      - REDIS_HOST=${REDIS_HOST:-redis_to_analyzer}
       - REDIS_PORT=${REDIS_PORT:-6379}
-      - COLLECTOR_URL=${COLLECTOR_URL:-http://localhost:462/event}
+      - COLLECTOR_HOST=${COLLECTOR_HOST:-collector_service}
+      - COLLECTOR_PORT=6000
     #
     # Указание от каких контейнеров зависит nginx - чей запуск ожидать 
     # перед собственным
     depends_on:
-      - redis_to_analyzer
-      - collector
+      redis_to_analyzer:
+        condition: service_healthy
+      collector_service:
+        condition: service_healthy
     #
     # Какие сети докеркомпоуза использует контейнер
     networks:
@@ -63,8 +141,33 @@ services:
       - ./nginx/lua:/etc/nginx/lua:ro
     #
     # Политика перезагрузки
-    # Всегда перезапускать, кроме явной остановки
-    restart: unless-stopped
+    restart: always
+    #
+    healthcheck:
+      test: ["CMD-SHELL", "/etc/nginx/nginx_healthcheck.sh"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    #
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "traffic-analyzer-nginx"
+    #
+    # Лимиты ресурсов для высокой нагрузки
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+  #
+  #
   #
   # Базовый контейнер с Redis
   redis_to_analyzer:
@@ -77,7 +180,7 @@ services:
     # --appendonly yes - включени AOF-журналирования
     ## Хоть функции долгосрочного хранения данных выполняет PostgreSQL, при сбоях редиса, 
     ##   значительно быстрее востановить данные из AOF-журнала, чем обращаться к постгресу
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --loglevel notice --logfile /var/log/redis/redis.log
     #
     ports:
       - "6379:6379" # Потом переделать на получение из .env
@@ -88,13 +191,15 @@ services:
     networks:
       - analyzer_network
     #
-    restart: unless-stopped
+    restart: always
     #
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
+  #
+  #
   #
   # Базовый контейнер с PostgreSQL для долгосрочного хранения
   postgres:
@@ -110,15 +215,113 @@ services:
       ## Кодировка (важно для анализируемого трафика) - UTF-8
       ## Правило сортировки строк - --lc-collate=C - побайтовая сортировка (быстрее обычной)
       ## Правило классификации символов - --lc-ctype=C - без обработки регистров, но быстрее
-      - POSTGRES_INITDB_AGRS=UTF-8 --lc-collate=C --lc-ctype=C
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     #
     ports:
       - "5432:5432"
     #
-
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     #
-    # Описание volumes 
+    networks:
+      - analyzer_network
+    #
+    restart: always
+    #
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  #
+  #
+  #
+  # Брокер RabbitMQ
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    #
+    container_name: rabbitmq_to_analyzer_container
+    #
+    hostname: rabbitmq
+    #
+    restart: always
+    #
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      #
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      #
+      # Стандартный виртуальный хост. Очереди для каждого сервиса будут отдельными
+      ## Имя виртуального хоста нужно, чтобы отделить сервисы мессенджера от других 
+      ## возможных программ работающих с rabbitmq
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_DEFAULT_VHOST:-/}
+      #
+      # Значение оставшегося своодного пространства, ниже которого
+      ## rabbitmq уйдет в защиту и перестанет писать. Установлю 2 гб
+      # consumer_timeout - максимальное ожидание ответа от сервисов. 20 минут
+      ## # Лимит хранимых записей - 2гб
+      ## # Максимальное время которое анализатор может обрабатывать сообщение 5 минут
+      ## # Верхний порог использования оперативки 60% от лимита контейнера
+      ## # Периодичность проверки сообщений между клиентом и сервером 30 сек
+      ## # 256кб максимальный размер AMQP фрейма (сообщения или его части)
+      ## # Максимальное количество каналов на соединение
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: >
+        -rabbit disk_free_limit "{absolute, 2147483648}"
+        -rabbit vm_memory_high_watermark "{relative, 0.6}"
+    #
+    # Лимиты ресурсов контейнера
+    deploy:
+      resources:
+        limits:
+          cpus: '2'      # Не более 2 ядер CPU
+          memory: 2G     # Не более 2GB RAM
+        # Гарантированный минимум
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    #
+    volumes:
+      # Внутренние логи rabbitmq 
+      - rabbitmq_logs:/var/log/rabbitmq
+      #
+      # Сохранение всех сообщений (персистентности)
+      - rabbitmq_data:/var/lib/rabbitmq
+      #
+      # Конфигурационные файлы
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq/advanced.config:/etc/rabbitmq/advanced.config:ro
+    #
+    ports:
+      - "5672:5672"   # Незашифрованный трафик общения сервисов
+      #- "5671:5671"   # Зашифрованный трафик общения сервисов
+      - "15672:15672" # Веб панель управления
+    #
+    # Используемые сети
+    networks:
+      - analyzer_network
+    #
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    #
+    # Логи docker контейнера (вкл/выкл и тп)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "traffic-analyzer-rabbitmq"
+#
+# Описание volumes 
 volumes:
+  #
+  # Логи коллектора
+  collector_service_logs:
+    name: collector-logs-volume
   #
   # Логи nginx
   nginx-logs:
@@ -127,6 +330,14 @@ volumes:
   # Хранилище AOF-журналов Redis
   redis-data:
     name: redis-data-volume
+  #
+  # Логи брокера
+  rabbitmq-logs:
+    name: rabbitmq-logs-volume
+  #
+  # Персистентность сообщений - сохранение после перезагрузки
+  rabbitmq-data:
+    name: rabbitmq-data-volume
 #
 # Описание сетей
 networks:

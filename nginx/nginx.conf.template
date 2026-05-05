@@ -41,8 +41,21 @@ http {
     default_type application/octet-stream;
     #
     # Определение формата логирования
-    #  создает формат логов с именем main определяющий формат логов - что будет в 
-    #  них попадать
+    # Что будет попадать в JSON логи для анализатора
+    log_format analyzer_json escape=json '{'
+        '"ip":"$remote_addr",'
+        '"method":"$request_method",'
+        '"uri":"$request_uri",'
+        '"status":$status,'
+        '"body_bytes_sent":$body_bytes_sent,'
+        '"user_agent":"$http_user_agent",'
+        '"referer":"$http_referer",'
+        '"x_forwarded_for":"$http_x_forwarded_for",'
+        '"request_time":$request_time,'
+        '"timestamp":"$time_iso8601"'
+    '}';
+    #
+    # Обычный лог для отладки (файл)
     log_format main '$remote_addr - $remote_user [$time_local] "$request" '
                     '$status $body_bytes_sent "$http_referer" '
                     '"$http_user_agent" "$http_x_forwarded_for" '
@@ -97,7 +110,6 @@ http {
     # Защита от атак на основе тайминга
     # Ограничение количества запросов от одного IP
     limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;
-    #
     # Включение статистики подключений
     limit_conn_zone $binary_remote_addr zone=addr:10m;
     #
@@ -108,7 +120,7 @@ http {
         listen [::]:${NGINX_PORT:-5173} default_server;
         #
         # Имя сервера - обрабатываемый домен или локалхост по умолчанию
-        server_name ${NGINX_HOST:-localhost};
+        server_name _;
         #
         # Корневая директория для статических файлов - потом добавим страницу 
         #  ошибки 404
@@ -123,29 +135,17 @@ http {
             add_header Content-Type text/plain;
         }
         #
-        # Основной location для статики
+        # Проверка ип, отправление в коллектор, обычная отправка запроса
         location / {
+            # 1. Проверка Redis через Lua (блокирует если IP забанен)
+            access_by_lua_file /etc/nginx/lua/check_ip.lua;
+            
+            # 2. Отправка JSON в Collector через TCP syslog
+            access_log syslog:server=${COLLECTOR_HOST:-collector}:${COLLECTOR_PORT:-6000},tag=nginx_analyzer analyzer_json;
+            
+            # 3. Обычная обработка запроса
             try_files $uri $uri/ /index.html;
         }
-        #
-        # Обработка API запросов (если есть проксирование)
-        # Раскомментировать и настроить при необходимости
-        # location /api/ {
-        #     proxy_pass http://backend:3000;
-        #     proxy_http_version 1.1;
-        #     proxy_set_header Upgrade $http_upgrade;
-        #     proxy_set_header Connection 'upgrade';
-        #     proxy_set_header Host $host;
-        #     proxy_cache_bypass $http_upgrade;
-        #     proxy_set_header X-Real-IP $remote_addr;
-        #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        #     proxy_set_header X-Forwarded-Proto $scheme;
-        #     
-        #     # Таймауты для прокси
-        #     proxy_connect_timeout 60s;
-        #     proxy_send_timeout 60s;
-        #     proxy_read_timeout 60s;
-        # }
         #
         # Запрет доступа к скрытым файлам и директориям - те что начинаются на точку
         location ~ /\. {
@@ -161,13 +161,6 @@ http {
             log_not_found off;
         }
         #
-        # Обработка ошибок
-        # error_page 404 /404.html;
-        # error_page 500 502 503 504 /50x.html;
-        
-        # location = /50x.html {
-        #     root /usr/share/nginx/html;
-        # }
         # Чтобы любая ошибка возвращала один и тот же html файл
         error_page 400 401 402 403 404 405 500 501 502 503 504 /error.html;
         #

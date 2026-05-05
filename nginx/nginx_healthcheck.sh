@@ -1,4 +1,4 @@
-# #!/bin/sh
+#!/bin/sh
 # nginx_healthcheck.sh
 #
 # Получение порта из переменной окружения
@@ -10,4 +10,4 @@ PORT="${NGINX_PORT:-5173}"
 # этот эндпоинт. Если первая часть вернет ошибку, то во второй части 
 # принудительно завершится текущий процесс
 # Выполнение проверки
-curl -f "http://localhost:${PORT}/health" || exit 1
+curl -f -s --max-time 3 "http://localhost:${PORT}/health" || exit 1
