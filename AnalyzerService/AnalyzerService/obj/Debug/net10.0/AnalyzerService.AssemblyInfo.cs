@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AnalyzerService")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8f86f6aee4da2b241f0c84a51d804031b96f8575")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+315bc981c4688932f4570e652f143a647a39b092")]
 [assembly: System.Reflection.AssemblyProductAttribute("AnalyzerService")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AnalyzerService")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
