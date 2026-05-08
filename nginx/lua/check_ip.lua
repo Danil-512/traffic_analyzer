@@ -10,12 +10,23 @@ red:set_timeout(500) -- 500 мс таймаут на соединение с Red
 -- Подключение к Redis
 local redis_host = os.getenv("REDIS_HOST") or "redis"
 local redis_port = os.getenv("REDIS_PORT") or 6379
+local redis_password = os.getenv("REDIS_PASSWORD") or ""
 
 local ok, err = red:connect(redis_host, redis_port)
 if not ok then
     -- Если Redis недоступен - пропускаем запрос (не блокируем)
     ngx.log(ngx.WARN, "Redis connection failed: ", err)
     return
+end
+
+-- Аутентификация, если пароль задан
+if redis_password ~= "" then
+    local ok, err = red:auth(redis_password)
+    if not ok then
+        ngx.log(ngx.ERR, "Redis auth failed: ", err)
+        red:close()
+        return
+    end
 end
 
 -- Получаем IP клиента

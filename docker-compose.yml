@@ -21,7 +21,7 @@ services:
       - COLLECTOR_SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
       # Для работы с RabbitMQ
       - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
+      - RABBITMQ_PORT=${RABBITMQ_DEFAULT_PORT}
       - RABBITMQ_USER=${RABBITMQ_DEFAULT_USER}
       - RABBITMQ_PASS=${RABBITMQ_DEFAULT_PASS}
       - RABBITMQ_VHOST=${RABBITMQ_DEFAULT_VHOST:-/}
@@ -30,7 +30,7 @@ services:
       - ASPNETCORE_URLS=http://0.0.0.0:${COLLECTOR_SERVICE_PORT:-5001}
       #
       # TCP порт для приёма логов от Nginx
-      - COLLECTOR_TCP_PORT=6000
+      - COLLECTOR_TCP_PORT=${COLLECTOR_TCP_PORT}
       #
       # Логирование
       - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
@@ -76,7 +76,7 @@ services:
       # http для хилтчека
       - "${COLLECTOR_SERVICE_PORT}:${COLLECTOR_SERVICE_PORT:-5001}"
       # Для TCP от nginx
-      - "6000:6000"
+      - "${COLLECTOR_TCP_PORT}:${COLLECTOR_TCP_PORT}"
   #
   #
   #
@@ -117,15 +117,18 @@ services:
       - NGINX_HOST=${NGINX_HOST:-localhost}
       - NGINX_PORT=${NGINX_PORT:-5173}
       # Данные для подключения к Redis
-      - REDIS_HOST=${REDIS_HOST:-redis_to_analyzer}
+      - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT:-6379}
-      - COLLECTOR_HOST=${COLLECTOR_HOST:-collector_service}
-      - COLLECTOR_PORT=6000
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - COLLECTOR_SERVICE_HOST=collector_service
+      - COLLECTOR_TCP_PORT=${COLLECTOR_TCP_PORT}
+      - FRONT_HOST=${FRONT_HOST}
+      - FRONT_PORT=${FRONT_PORT}
     #
     # Указание от каких контейнеров зависит nginx - чей запуск ожидать 
     # перед собственным
     depends_on:
-      redis_to_analyzer:
+      redis:
         condition: service_healthy
       collector_service:
         condition: service_healthy
@@ -170,7 +173,7 @@ services:
   #
   #
   # Базовый контейнер с Redis
-  redis_to_analyzer:
+  redis:
     image: redis:7.4-alpine
     #
     container_name: redis_to_analyzer_container
@@ -194,7 +197,7 @@ services:
     restart: always
     #
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=${REDIS_PASSWORD} redis-cli ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -208,9 +211,9 @@ services:
     container_name: postgres_to_analyzer_container
     #
     environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRESQL_DATABASE}
+      - POSTGRES_USER=${POSTGRESQL_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRESQL_PASSWORD}
       # Базовые настройки, которые намертво вшиваются в СУБД при запуске
       ## Кодировка (важно для анализируемого трафика) - UTF-8
       ## Правило сортировки строк - --lc-collate=C - побайтовая сортировка (быстрее обычной)
@@ -218,7 +221,7 @@ services:
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     #
     ports:
-      - "5432:5432"
+      - "${POSTGRESQL_PORT}:5432"
     #
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -230,7 +233,7 @@ services:
     restart: always
     #
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"] # POSTGRES_USER уже существует в контейнере
       interval: 10s
       timeout: 5s
       retries: 5
@@ -293,9 +296,9 @@ services:
       - ./rabbitmq/advanced.config:/etc/rabbitmq/advanced.config:ro
     #
     ports:
-      - "5672:5672"   # Незашифрованный трафик общения сервисов
+      - "${RABBITMQ_DEFAULT_PORT}:5672"   # Незашифрованный трафик общения сервисов
       #- "5671:5671"   # Зашифрованный трафик общения сервисов
-      - "15672:15672" # Веб панель управления
+      - "${RABBITMQ_WEP_PANEL_PORT}:15672" # Веб панель управления
     #
     # Используемые сети
     networks:
@@ -338,6 +341,9 @@ volumes:
   # Персистентность сообщений - сохранение после перезагрузки
   rabbitmq-data:
     name: rabbitmq-data-volume
+  #
+  postgres-data:
+    name: postgres-data-volume
 #
 # Описание сетей
 networks:

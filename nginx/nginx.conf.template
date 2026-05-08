@@ -52,7 +52,8 @@ http {
         '"referer":"$http_referer",'
         '"x_forwarded_for":"$http_x_forwarded_for",'
         '"request_time":$request_time,'
-        '"timestamp":"$time_iso8601"'
+        '"timestamp":"$time_iso8601",'
+        '"body":"$request_body"'
     '}';
     #
     # Обычный лог для отладки (файл)
@@ -113,6 +114,12 @@ http {
     # Включение статистики подключений
     limit_conn_zone $binary_remote_addr zone=addr:10m;
     #
+    # Направление на фронт
+    upstream frontend {
+        server ${FRONT_HOST}:${FRONT_PORT};
+        keepalive 32;
+    }
+    #
     # Основной серверный блок - определяет правила обработки входящих запросов
     server {
         # Слушаем порт из переменной окружения или 5173 по умолчанию
@@ -141,10 +148,29 @@ http {
             access_by_lua_file /etc/nginx/lua/check_ip.lua;
             
             # 2. Отправка JSON в Collector через TCP syslog
-            access_log syslog:server=${COLLECTOR_HOST:-collector}:${COLLECTOR_PORT:-6000},tag=nginx_analyzer analyzer_json;
+            access_log syslog:server=${COLLECTOR_SERVICE_HOST:-collector}:${COLLECTOR_TCP_PORT:-6000},tag=nginx_analyzer analyzer_json;
             
-            # 3. Обычная обработка запроса
-            try_files $uri $uri/ /index.html;
+            # Проксирование на фронтенд
+            proxy_pass http://frontend;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # Таймауты проксирования
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # Буферизация
+            proxy_buffering off;
+            proxy_buffer_size 4k;
+            proxy_buffers 8 4k;
+            proxy_busy_buffers_size 8k;
+            proxy_max_temp_file_size 0;
         }
         #
         # Запрет доступа к скрытым файлам и директориям - те что начинаются на точку

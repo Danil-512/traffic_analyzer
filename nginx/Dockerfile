@@ -10,6 +10,8 @@ FROM openresty/openresty:1.25.3.1-alpine
 RUN apk add --no-cache curl openresty-opm && \
     opm get openresty/lua-resty-redis
 #
+COPY --chown=nginx:nginx mime.types ./
+#
 # Установить рабочую директорию, относительно которой будут выполняться команды 
 # по типу run, copy, cmd
 WORKDIR /etc/nginx
