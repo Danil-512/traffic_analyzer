@@ -1,7 +1,24 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{D5C67005-C111-42E8-E1E8-8A044D42DBB9}|CollectorService\\CollectorService.csproj|c:\\users\\danil\\documents\\github\\mess1\\traffic_analyzer\\collectorservice\\collectorservice\\collectorservice.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}",
+      "RelativeMoniker": "D:0:0:{D5C67005-C111-42E8-E1E8-8A044D42DBB9}|CollectorService\\CollectorService.csproj|solutionrelative:collectorservice\\collectorservice.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D5C67005-C111-42E8-E1E8-8A044D42DBB9}|CollectorService\\CollectorService.csproj|c:\\users\\danil\\documents\\github\\mess1\\traffic_analyzer\\collectorservice\\collectorservice\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D5C67005-C111-42E8-E1E8-8A044D42DBB9}|CollectorService\\CollectorService.csproj|solutionrelative:collectorservice\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D5C67005-C111-42E8-E1E8-8A044D42DBB9}|CollectorService\\CollectorService.csproj|c:\\users\\danil\\documents\\github\\mess1\\traffic_analyzer\\collectorservice\\collectorservice\\httpendpoints.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D5C67005-C111-42E8-E1E8-8A044D42DBB9}|CollectorService\\CollectorService.csproj|solutionrelative:collectorservice\\httpendpoints.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D5C67005-C111-42E8-E1E8-8A044D42DBB9}|CollectorService\\CollectorService.csproj|c:\\users\\danil\\documents\\github\\mess1\\traffic_analyzer\\collectorservice\\collectorservice\\worker.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{D5C67005-C111-42E8-E1E8-8A044D42DBB9}|CollectorService\\CollectorService.csproj|solutionrelative:collectorservice\\worker.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
@@ -9,7 +26,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": -1,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Bookmark",
@@ -30,6 +47,58 @@
             {
               "$type": "Bookmark",
               "Name": "ST:133:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "CollectorService",
+              "DocumentMoniker": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\CollectorService\\CollectorService.csproj",
+              "RelativeDocumentMoniker": "CollectorService\\CollectorService.csproj",
+              "ToolTip": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\CollectorService\\CollectorService.csproj*",
+              "RelativeToolTip": "CollectorService\\CollectorService.csproj*",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAA8AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-05-08T08:41:45.167Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Worker.cs",
+              "DocumentMoniker": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\CollectorService\\Worker.cs",
+              "RelativeDocumentMoniker": "CollectorService\\Worker.cs",
+              "ToolTip": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\CollectorService\\Worker.cs",
+              "RelativeToolTip": "CollectorService\\Worker.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAMAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-08T08:24:57.722Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "HttpEndpoints.cs",
+              "DocumentMoniker": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\CollectorService\\HttpEndpoints.cs",
+              "RelativeDocumentMoniker": "CollectorService\\HttpEndpoints.cs",
+              "ToolTip": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\CollectorService\\HttpEndpoints.cs",
+              "RelativeToolTip": "CollectorService\\HttpEndpoints.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAAaAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-08T08:07:19.134Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\CollectorService\\Program.cs",
+              "RelativeDocumentMoniker": "CollectorService\\Program.cs",
+              "ToolTip": "C:\\Users\\Danil\\Documents\\GitHub\\mess1\\traffic_analyzer\\CollectorService\\CollectorService\\Program.cs*",
+              "RelativeToolTip": "CollectorService\\Program.cs*",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-08T07:45:17.848Z",
+              "EditorCaption": ""
             }
           ]
         }
