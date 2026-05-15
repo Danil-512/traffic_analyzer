@@ -269,9 +269,7 @@ services:
       ## # Периодичность проверки сообщений между клиентом и сервером 30 сек
       ## # 256кб максимальный размер AMQP фрейма (сообщения или его части)
       ## # Максимальное количество каналов на соединение
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: >
-        -rabbit disk_free_limit "{absolute, 2147483648}"
-        -rabbit vm_memory_high_watermark "{relative, 0.6}"
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbit disk_free_limit {absolute, 2147483648} -rabbit vm_memory_high_watermark {relative, 0.6}
     #
     # Лимиты ресурсов контейнера
     deploy:
@@ -286,10 +284,10 @@ services:
     #
     volumes:
       # Внутренние логи rabbitmq 
-      - rabbitmq_logs:/var/log/rabbitmq
+      - rabbitmq-logs:/var/log/rabbitmq
       #
       # Сохранение всех сообщений (персистентности)
-      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq-data:/var/lib/rabbitmq
       #
       # Конфигурационные файлы
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
