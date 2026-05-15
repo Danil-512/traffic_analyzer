@@ -5,22 +5,21 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 #
 # Скопировать файл зависимостей и все файлы проекта
-COPY ["UeerService/UeerService.csproj", "UeerService/"]
-COPY ["SigmaMessenger.Shared/SigmaMessenger.Shared.csproj", "SigmaMessenger.Shared/"]
+COPY ["CollectorService/CollectorService.csproj", "CollectorService/"]
 # Скачать все нужные NuGet пакеты
-RUN dotnet restore "UeerService/UeerService.csproj"
+RUN dotnet restore "CollectorService/CollectorService.csproj"
 #
 # Копируем весь исходный код
 COPY . .
 #
-# Переходим в папку UeerService
-WORKDIR /src/UeerService
+# Переходим в папку
+WORKDIR /src/CollectorService
 #
 # Сборка и публикация приложения
 # -c Release - оптимизированная сборка
 # -o /app/publish - выходная директория
 # --self-contained false - используем системный runtime (меньше размер образа)
-RUN dotnet publish "UeerService.csproj" \
+RUN dotnet publish "CollectorService.csproj" \
     -c Release \
     -o /app/publish \
     --self-contained false \
@@ -28,7 +27,7 @@ RUN dotnet publish "UeerService.csproj" \
 #
 # Второй этап - Установка утилит нужных для эксплуатации, копирование скомпилированных файлов сохраненных в первом этапе,запуск сервиса
 # Легковесный образ только с ASP.NET Core Runtime 10.0
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
+FROM mcr.microsoft.com/dotnet/runtime:10.0-alpine AS final
 #
 # Получение порта из докеркомпоуза
 ARG SERVICE_PORT
@@ -65,5 +64,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:${SERVICE_PORT}/health || exit 1
 #
 # Запускаем приложение
-ENTRYPOINT ["dotnet", "UeerService.dll"]
-
+ENTRYPOINT ["dotnet", "CollectorService.dll"]
