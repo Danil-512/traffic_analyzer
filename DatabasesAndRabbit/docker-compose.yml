@@ -1,0 +1,182 @@
+version: '3.8'
+# docker-compose.yml
+#
+# Блок services - описание всех контейнеров
+services:
+  # Базовый контейнер с Redis
+  redis:
+    image: redis:7.4-alpine
+    #
+    container_name: redis_to_analyzer_container
+    #
+    # Сейчас запуск простой командой, в будущем надо будет переписать на докерфайл
+    # redis-server - исполняемый файл редиса
+    # --appendonly yes - включени AOF-журналирования
+    ## Хоть функции долгосрочного хранения данных выполняет PostgreSQL, при сбоях редиса, 
+    ##   значительно быстрее востановить данные из AOF-журнала, чем обращаться к постгресу
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --loglevel notice --logfile /var/log/redis/redis.log
+    #
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    #
+    ports:
+      - "${REDIS_PORT}:6379"
+    #
+    volumes:
+      - redis-data:/data
+    #
+    networks:
+      - analyzer_db_network
+    #
+    restart: always
+    #
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  #
+  #
+  #
+  # Базовый контейнер с PostgreSQL для долгосрочного хранения
+  postgres:
+    image: postgres:16-alpine
+    #
+    container_name: postgres_to_analyzer_container
+    #
+    environment:
+      - POSTGRES_DB=${POSTGRESQL_DATABASE}
+      - POSTGRES_USER=${POSTGRESQL_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRESQL_PASSWORD}
+      # Базовые настройки, которые намертво вшиваются в СУБД при запуске
+      ## Кодировка (важно для анализируемого трафика) - UTF-8
+      ## Правило сортировки строк - --lc-collate=C - побайтовая сортировка (быстрее обычной)
+      ## Правило классификации символов - --lc-ctype=C - без обработки регистров, но быстрее
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    #
+    ports:
+      - "${POSTGRESQL_PORT}:5432"
+    #
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    #
+    networks:
+      - analyzer_db_network
+    #
+    restart: always
+    #
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRESQL_USERNAME} -d ${POSTGRESQL_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  #
+  #
+  #
+  # Брокер RabbitMQ
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    #
+    container_name: rabbitmq_to_analyzer_container
+    #
+    hostname: rabbitmq
+    #
+    restart: always
+    #
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      #
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      #
+      # Стандартный виртуальный хост. Очереди для каждого сервиса будут отдельными
+      ## Имя виртуального хоста нужно, чтобы отделить сервисы мессенджера от других 
+      ## возможных программ работающих с rabbitmq
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_DEFAULT_VHOST}
+      #
+      # Значение оставшегося своодного пространства, ниже которого
+      ## rabbitmq уйдет в защиту и перестанет писать. Установлю 2 гб
+      # consumer_timeout - максимальное ожидание ответа от сервисов. 20 минут
+      #- RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbit disk_free_limit "{abs,2147483648}" -rabbit consumer_timeout 1200000
+    #
+    # Лимиты ресурсов контейнера
+    deploy:
+      resources:
+        limits:
+          cpus: '2'      # Не более 2 ядер CPU
+          memory: 2G     # Не более 2GB RAM
+        # Гарантированный минимум
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    #
+    volumes:
+      # Внутренние логи rabbitmq 
+      - rabbitmq_logs:/var/log/rabbitmq
+      #
+      # Сохранение всех сообщений (персистентности)
+      - rabbitmq_data:/var/lib/rabbitmq
+      #
+      # Конфигурационные файлы
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq/advanced.config:/etc/rabbitmq/advanced.config:ro
+    #
+    ports:
+      - "${RABBITMQ_DEFAULT_PORT}:5672"   # Незашифрованный трафик общения сервисов
+      #- "5671:5671"   # Зашифрованный трафик общения сервисов
+      - "${RABBITMQ_WEB_PORT}:15672" # Веб панель управления
+    #
+    # Используемые сети
+    networks:
+      - analyzer_db_network
+    #
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    #
+    # Логи docker контейнера (вкл/выкл и тп)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "traffic-analyzer-rabbitmq"
+#
+# Описание volumes 
+volumes:
+  #
+  # Хранилище AOF-журналов Redis
+  redis-data:
+    name: redis-data-volume
+  #
+  # Логи брокера
+  rabbitmq-logs:
+    name: rabbitmq-logs-volume
+  #
+  # Персистентность сообщений - сохранение после перезагрузки
+  rabbitmq-data:
+    name: rabbitmq-data-volume
+  #
+  postgres-data:
+    name: postgres-data-volume
+#
+# Описание сетей
+networks:
+  analyzer_db_network:
+    # bridge - закрытая сеть на одном хосте. Внутри сети компоуза каждый 
+    #   сервис будет иметь свой ip
+    # host - без сетевой изоляции. Будет занимать порт адреса хоста
+    # overlay - соединяет несколько хостов с Docker между собой
+    # macvlan - каждый контейнер будет иметь свой мак адрес, будет как 
+    #   отдельный сетевой адаптер в ОС хоста
+    # ipvlan - аналог macvlan, только все контейнеры будут иметь общий мак
+    # none - полностью отключить сеть для контейнера
+    driver: bridge
+    #
+    # Опционально - параметры сети
+    ipam:
+      config:
+        - subnet: 172.36.0.0/16
