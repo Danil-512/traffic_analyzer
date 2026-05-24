@@ -18,6 +18,9 @@ services:
     #
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      #
+      # Адрес постгреса, откуда брать данные при включении или перезапуске
+      - POSTGRESQL_HOST=${POSTGRESQL_HOST}
     #
     ports:
       - "${REDIS_PORT}:6379"
@@ -98,6 +101,10 @@ services:
       ## rabbitmq уйдет в защиту и перестанет писать. Установлю 2 гб
       # consumer_timeout - максимальное ожидание ответа от сервисов. 20 минут
       #- RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbit disk_free_limit "{abs,2147483648}" -rabbit consumer_timeout 1200000
+      #
+      # Адрес анализатора - куда отправлять логи nginx по мере его загруженности. 172.17.0.1 тк находится в другом докеркомпоузе
+      - ANALYZER_IP=172.17.0.1:${ANALYZER_SERVICE_PORT}
+
     #
     # Лимиты ресурсов контейнера
     deploy:

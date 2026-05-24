@@ -10,7 +10,7 @@ services:
       dockerfile: CollectorService/Dockerfile
       #
       args:
-        - SERVICE_PORT=${COLLECTOR_SERVICE_PORT:-5001}
+        - SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
     #
     container_name: collector_to_analyzer_container
     #
@@ -19,21 +19,28 @@ services:
     environment:
       - SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
       - COLLECTOR_SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
-      # Для работы с RabbitMQ
-      - RABBITMQ_HOST=rabbitmq
+      #
+      # Для обращений к RabbitMQ. 172.17.0.1 т.к. разные докеркомпоузы
+      - RABBITMQ_HOST=172.17.0.1
       - RABBITMQ_PORT=${RABBITMQ_DEFAULT_PORT}
       - RABBITMQ_USER=${RABBITMQ_DEFAULT_USER}
       - RABBITMQ_PASS=${RABBITMQ_DEFAULT_PASS}
-      - RABBITMQ_VHOST=${RABBITMQ_DEFAULT_VHOST:-/}
+      - RABBITMQ_VHOST=${RABBITMQ_DEFAULT_VHOST}
       #
       # HTTP порт для healthcheck - внутри Worker Service мини http сервер
-      - ASPNETCORE_URLS=http://0.0.0.0:${COLLECTOR_SERVICE_PORT:-5001}
+      - ASPNETCORE_URLS=http://0.0.0.0:${COLLECTOR_SERVICE_PORT}
       #
       # TCP порт для приёма логов от Nginx
       - COLLECTOR_TCP_PORT=${COLLECTOR_TCP_PORT}
       #
       # Логирование
       - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
+      #
+      # Адрес nginx откуда читать логи. Тот же докеркомпоуз
+      - NGINX_HOST=${NGINX_HOST}
+      #
+      # Адрес для обращение к редису (чтение заблокированных адресов). Разные докеркомпоузы
+      - REDIS_IP=172.17.0.1:${REDIS_PORT}
     #
     # Лимиты ресурсов
     deploy:
@@ -59,7 +66,7 @@ services:
     #
     # Health check для сервиса
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${COLLECTOR_SERVICE_PORT:-5001}/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${COLLECTOR_SERVICE_PORT}/health"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -74,7 +81,7 @@ services:
     #
     ports:
       # http для хилтчека
-      - "${COLLECTOR_SERVICE_PORT}:${COLLECTOR_SERVICE_PORT:-5001}"
+      - "${COLLECTOR_SERVICE_PORT}:${COLLECTOR_SERVICE_PORT}"
       # Для TCP от nginx
       - "${COLLECTOR_TCP_PORT}:${COLLECTOR_TCP_PORT}"
   #
@@ -100,7 +107,7 @@ services:
     # Первое - порт хоста, второе - порт внутри контейнера
     ports:
       # HTTP
-      - "80:5173"
+      - "9090:80"
       # HTTPS - Пока что не используем
       #- "443:8443"
       #
@@ -112,13 +119,13 @@ services:
       # Переменные окрежения для конейнера
     environment:
       # Максимальное количество ядер nginx из общего .env
-      - NGINX_MAX_CPU=${NGINX_MAX_CPU:-4}
+      - NGINX_MAX_CPU=${NGINX_MAX_CPU}
       # Явная передача
-      - NGINX_HOST=${NGINX_HOST:-localhost}
-      - NGINX_PORT=${NGINX_PORT:-5173}
+      - NGINX_HOST=${NGINX_HOST}
+      - NGINX_PORT=${NGINX_PORT}
       # Данные для подключения к Redis
       - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - COLLECTOR_SERVICE_HOST=collector_service
       - COLLECTOR_TCP_PORT=${COLLECTOR_TCP_PORT}
@@ -171,153 +178,6 @@ services:
           memory: 512M
   #
   #
-  #
-  # Базовый контейнер с Redis
-  redis:
-    image: redis:7.4-alpine
-    #
-    container_name: redis_to_analyzer_container
-    #
-    # Сейчас запуск простой командой, в будущем надо будет переписать на докерфайл
-    # redis-server - исполняемый файл редиса
-    # --appendonly yes - включени AOF-журналирования
-    ## Хоть функции долгосрочного хранения данных выполняет PostgreSQL, при сбоях редиса, 
-    ##   значительно быстрее востановить данные из AOF-журнала, чем обращаться к постгресу
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --loglevel notice --logfile /var/log/redis/redis.log
-    #
-    ports:
-      - "6379:6379" # Потом переделать на получение из .env
-    #
-    volumes:
-      - redis-data:/data
-    #
-    networks:
-      - analyzer_network
-    #
-    restart: always
-    #
-    healthcheck:
-      test: ["CMD-SHELL", "REDISCLI_AUTH=${REDIS_PASSWORD} redis-cli ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-  #
-  #
-  #
-  # Базовый контейнер с PostgreSQL для долгосрочного хранения
-  postgres:
-    image: postgres:16-alpine
-    #
-    container_name: postgres_to_analyzer_container
-    #
-    environment:
-      - POSTGRES_DB=${POSTGRESQL_DATABASE}
-      - POSTGRES_USER=${POSTGRESQL_USERNAME}
-      - POSTGRES_PASSWORD=${POSTGRESQL_PASSWORD}
-      # Базовые настройки, которые намертво вшиваются в СУБД при запуске
-      ## Кодировка (важно для анализируемого трафика) - UTF-8
-      ## Правило сортировки строк - --lc-collate=C - побайтовая сортировка (быстрее обычной)
-      ## Правило классификации символов - --lc-ctype=C - без обработки регистров, но быстрее
-      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
-    #
-    ports:
-      - "${POSTGRESQL_PORT}:5432"
-    #
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    #
-    networks:
-      - analyzer_network
-    #
-    restart: always
-    #
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"] # POSTGRES_USER уже существует в контейнере
-      interval: 10s
-      timeout: 5s
-      retries: 5
-  #
-  #
-  #
-  # Брокер RabbitMQ
-  rabbitmq:
-    image: rabbitmq:4.2-management-alpine
-    #
-    container_name: rabbitmq_to_analyzer_container
-    #
-    hostname: rabbitmq
-    #
-    restart: always
-    #
-    environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
-      #
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
-      #
-      # Стандартный виртуальный хост. Очереди для каждого сервиса будут отдельными
-      ## Имя виртуального хоста нужно, чтобы отделить сервисы мессенджера от других 
-      ## возможных программ работающих с rabbitmq
-      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_DEFAULT_VHOST:-/}
-      #
-      # Значение оставшегося своодного пространства, ниже которого
-      ## rabbitmq уйдет в защиту и перестанет писать. Установлю 2 гб
-      # consumer_timeout - максимальное ожидание ответа от сервисов. 20 минут
-      ## # Лимит хранимых записей - 2гб
-      ## # Максимальное время которое анализатор может обрабатывать сообщение 5 минут
-      ## # Верхний порог использования оперативки 60% от лимита контейнера
-      ## # Периодичность проверки сообщений между клиентом и сервером 30 сек
-      ## # 256кб максимальный размер AMQP фрейма (сообщения или его части)
-      ## # Максимальное количество каналов на соединение
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: >
-        -rabbit disk_free_limit "{absolute, 2147483648}"
-        -rabbit vm_memory_high_watermark "{relative, 0.6}"
-    #
-    # Лимиты ресурсов контейнера
-    deploy:
-      resources:
-        limits:
-          cpus: '2'      # Не более 2 ядер CPU
-          memory: 2G     # Не более 2GB RAM
-        # Гарантированный минимум
-        reservations:
-          cpus: '0.5'
-          memory: 1G
-    #
-    volumes:
-      # Внутренние логи rabbitmq 
-      - rabbitmq_logs:/var/log/rabbitmq
-      #
-      # Сохранение всех сообщений (персистентности)
-      - rabbitmq_data:/var/lib/rabbitmq
-      #
-      # Конфигурационные файлы
-      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./rabbitmq/advanced.config:/etc/rabbitmq/advanced.config:ro
-    #
-    ports:
-      - "${RABBITMQ_DEFAULT_PORT}:5672"   # Незашифрованный трафик общения сервисов
-      #- "5671:5671"   # Зашифрованный трафик общения сервисов
-      - "${RABBITMQ_WEP_PANEL_PORT}:15672" # Веб панель управления
-    #
-    # Используемые сети
-    networks:
-      - analyzer_network
-    #
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    #
-    # Логи docker контейнера (вкл/выкл и тп)
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        labels: "traffic-analyzer-rabbitmq"
 #
 # Описание volumes 
 volumes:
@@ -329,21 +189,6 @@ volumes:
   # Логи nginx
   nginx-logs:
     name: nginx-logs-volume
-  #
-  # Хранилище AOF-журналов Redis
-  redis-data:
-    name: redis-data-volume
-  #
-  # Логи брокера
-  rabbitmq-logs:
-    name: rabbitmq-logs-volume
-  #
-  # Персистентность сообщений - сохранение после перезагрузки
-  rabbitmq-data:
-    name: rabbitmq-data-volume
-  #
-  postgres-data:
-    name: postgres-data-volume
 #
 # Описание сетей
 networks:
@@ -361,4 +206,4 @@ networks:
     # Опционально - параметры сети
     ipam:
       config:
-        - subnet: 172.22.0.0/16
+        - subnet: 172.39.0.0/16
