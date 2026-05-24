@@ -176,8 +176,6 @@ services:
         reservations:
           cpus: '1'
           memory: 512M
-  #
-  #
 #
 # Описание volumes 
 volumes:

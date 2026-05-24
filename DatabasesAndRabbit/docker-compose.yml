@@ -1,4 +1,3 @@
-version: '3.8'
 # docker-compose.yml
 #
 # Блок services - описание всех контейнеров
@@ -14,7 +13,7 @@ services:
     # --appendonly yes - включени AOF-журналирования
     ## Хоть функции долгосрочного хранения данных выполняет PostgreSQL, при сбоях редиса, 
     ##   значительно быстрее востановить данные из AOF-журнала, чем обращаться к постгресу
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --loglevel notice --logfile /var/log/redis/redis.log
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --loglevel notice
     #
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
@@ -119,10 +118,10 @@ services:
     #
     volumes:
       # Внутренние логи rabbitmq 
-      - rabbitmq_logs:/var/log/rabbitmq
+      - rabbitmq-logs:/var/log/rabbitmq
       #
       # Сохранение всех сообщений (персистентности)
-      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq-data:/var/lib/rabbitmq
       #
       # Конфигурационные файлы
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
