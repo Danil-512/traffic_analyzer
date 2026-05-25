@@ -21,7 +21,7 @@ services:
       - COLLECTOR_SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
       #
       # Для обращений к RabbitMQ. 172.17.0.1 т.к. разные докеркомпоузы
-      - RABBITMQ_HOST=172.17.0.1
+      - RABBITMQ_HOST=${DOCKER_BRIDGE_IP:-172.17.0.1}
       - RABBITMQ_PORT=${RABBITMQ_DEFAULT_PORT}
       - RABBITMQ_USER=${RABBITMQ_DEFAULT_USER}
       - RABBITMQ_PASS=${RABBITMQ_DEFAULT_PASS}
@@ -40,7 +40,7 @@ services:
       - NGINX_HOST=${NGINX_HOST}
       #
       # Адрес для обращение к редису (чтение заблокированных адресов). Разные докеркомпоузы
-      - REDIS_IP=172.17.0.1:${REDIS_PORT}
+      - REDIS_IP=${DOCKER_BRIDGE_IP:-172.17.0.1}:${REDIS_PORT}
     #
     # Лимиты ресурсов
     deploy:
@@ -59,10 +59,6 @@ services:
     networks:
       - analyzer_network
     #
-    # Зависимость от RabbitMQ
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
     #
     # Health check для сервиса
     healthcheck:
@@ -107,7 +103,7 @@ services:
     # Первое - порт хоста, второе - порт внутри контейнера
     ports:
       # HTTP
-      - "9090:80"
+      - "${NGINX_HOST_PORT:-5172}:${NGINX_PORT:-80}"
       # HTTPS - Пока что не используем
       #- "443:8443"
       #
@@ -135,8 +131,6 @@ services:
     # Указание от каких контейнеров зависит nginx - чей запуск ожидать 
     # перед собственным
     depends_on:
-      redis:
-        condition: service_healthy
       collector_service:
         condition: service_healthy
     #
