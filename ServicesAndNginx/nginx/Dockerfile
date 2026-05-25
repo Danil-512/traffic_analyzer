@@ -7,10 +7,12 @@ FROM openresty/openresty:1.25.3.1-alpine
 # Установка curl - используется в Healthcheck
 # Установка пакетного менеджера для OpenResty
 # Плюс установка пакета для работы с Redis
-RUN apk add --no-cache curl openresty-opm && \
-    opm get openresty/lua-resty-redis
+RUN apk add --no-cache curl && \
+    mkdir -p /usr/local/openresty/lualib/resty && \
+    curl -L -o /usr/local/openresty/lualib/resty/redis.lua \
+    https://raw.githubusercontent.com/openresty/lua-resty-redis/master/lib/resty/redis.lua
 #
-COPY --chown=nginx:nginx mime.types ./
+COPY mime.types /etc/nginx/mime.types
 #
 # Установить рабочую директорию, относительно которой будут выполняться команды 
 # по типу run, copy, cmd
@@ -25,37 +27,31 @@ WORKDIR /etc/nginx
 # nginx.conf.template - шаблон для формирования nginx.conf в entrypoint.sh
 # nginx_healthcheck.sh - запуск хилтчека
 #
-COPY --chown=nginx:nginx nginx.conf.template ./nginx.conf.template
-COPY --chown=nginx:nginx nginx_healthcheck.sh ./nginx_healthcheck.sh
-COPY --chown=nginx:nginx security_headers.conf ./
+COPY nginx.conf.template ./nginx.conf.template
+COPY nginx_healthcheck.sh ./nginx_healthcheck.sh
+COPY security_headers.conf ./
+#COPY conf.d/*.conf ./conf.d/
 #
-# Аналогичное копирование файлов конфигурации сервисов
-COPY --chown=nginx:nginx conf.d/*.conf ./conf.d/
-#
-# Создание директории для Lua скриптов
-RUN mkdir -p /etc/nginx/lua && \
-    chown -R nginx:nginx /etc/nginx/lua
-#
-# Копирование Lua скриптов в контейнер
-COPY --chown=nginx:nginx lua/*.lua ./lua/
-#
-# Блок создания необходимых директорий внутри контейнера - кэш, информация о 
-# процессах nginx (пид), логи (логи смонтирую вне контейнера в файле компоуза)
-# RUN выполняет команды во время сборки контейнера
-# Сначала создать директорию для кэша. Тег -p позволяет создать все дерево 
-# директорий целиком, а не создавать отдельно каждый раз по папке.
-RUN mkdir -p /var/cache/nginx /var/run /var/log/nginx && \
-    # Для всех созданных директорий изменить владельцев и группы
-    # Флаг -R означает рекурсивный режим, то есть применить к папке и всему 
-    # возможному содержимому на любой глубине вложенности
+RUN adduser -D -g '' nginx && \
+    mkdir -p /etc/nginx/lua && \
+    mkdir -p /var/cache/nginx /var/run /var/log/nginx && \
+    mkdir -p /usr/local/openresty/nginx/client_body_temp && \
+    mkdir -p /usr/local/openresty/nginx/proxy_temp && \
+    mkdir -p /usr/local/openresty/nginx/fastcgi_temp && \
+    mkdir -p /usr/local/openresty/nginx/uwsgi_temp && \
+    mkdir -p /usr/local/openresty/nginx/scgi_temp && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /etc/nginx/lua && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /var/run && \
     chown -R nginx:nginx /var/log/nginx && \
-    # Создать файл, куда nginx будет записывать пид (идентификатор своего процесса)
-    # Нужен, чтобы его можно было по нему останавливать, перезапускать и проверять 
-    # статус 
-    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /usr/local/openresty/nginx && \
     chown nginx:nginx /var/run/nginx.pid
+#
+#
+#
+# Копирование Lua скриптов в контейнер
+COPY lua/*.lua ./lua/
 #
 # Скопировать entrypoint.sh
 COPY entrypoint.sh /entrypoint.sh

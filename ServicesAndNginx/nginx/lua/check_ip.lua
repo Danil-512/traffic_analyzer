@@ -1,50 +1,54 @@
--- check_ip.lua
--- Проверка IP в Redis перед обработкой запроса
-
 local redis = require "resty.redis"
-local cjson = require "cjson"
-
 local red = redis:new()
-red:set_timeout(500) -- 500 мс таймаут на соединение с Redis
+red:set_timeout(500)
 
--- Подключение к Redis
-local redis_host = os.getenv("REDIS_HOST") or "redis"
-local redis_port = os.getenv("REDIS_PORT") or 6379
-local redis_password = os.getenv("REDIS_PASSWORD") or ""
+local redis_host = "172.17.0.1"
+local redis_port = 6379
+local redis_password = "dafej1@*jW"
 
 local ok, err = red:connect(redis_host, redis_port)
 if not ok then
-    -- Если Redis недоступен - пропускаем запрос (не блокируем)
-    ngx.log(ngx.WARN, "Redis connection failed: ", err)
+    ngx.log(ngx.ERR, "Redis connection failed: ", err)
     return
 end
 
--- Аутентификация, если пароль задан
 if redis_password ~= "" then
-    local ok, err = red:auth(redis_password)
-    if not ok then
-        ngx.log(ngx.ERR, "Redis auth failed: ", err)
-        red:close()
-        return
-    end
+    red:auth(redis_password)
 end
 
--- Получаем IP клиента
-local client_ip = ngx.var.remote_addr
+-- Просмотр всех заголовков
+local headers = ngx.req.get_headers()
+ngx.log(ngx.WARN, "=== HEADERS ===")
+ngx.log(ngx.WARN, "X-Forwarded-For: ", headers["X-Forwarded-For"] or "none")
+ngx.log(ngx.WARN, "X-Real-IP: ", headers["X-Real-IP"] or "none")
+ngx.log(ngx.WARN, "True-Client-IP: ", headers["True-Client-IP"] or "none")
+ngx.log(ngx.WARN, "CF-Connecting-IP: ", headers["CF-Connecting-IP"] or "none")
+ngx.log(ngx.WARN, "remote_addr: ", ngx.var.remote_addr)
 
--- Проверяем, есть ли IP в множестве blocked_ips
-local is_blocked, err = red:sismember("blocked_ips", client_ip)
+-- Пытаемся определить реальный IP
+local real_ip = headers["X-Forwarded-For"] or 
+                headers["X-Real-IP"] or 
+                headers["True-Client-IP"] or 
+                headers["CF-Connecting-IP"] or 
+                ngx.var.remote_addr
 
+-- Если X-Forwarded-For содержит несколько IP, берем первый
+if real_ip then
+    real_ip = string.match(real_ip, "([^,]+)")
+end
+
+ngx.log(ngx.WARN, "Real IP detected: ", real_ip)
+
+local is_blocked, err = red:sismember("blocked_ips", real_ip)
 if err then
-    ngx.log(ngx.ERR, "Redis sismember error: ", err)
+    ngx.log(ngx.ERR, "Redis error: ", err)
     return
 end
 
--- Если IP заблокирован - возвращаем 403
 if is_blocked == 1 then
-    ngx.log(ngx.WARN, "Blocked IP: ", client_ip)
+    ngx.log(ngx.WARN, "!!! BLOCKED IP: ", real_ip)
     ngx.exit(ngx.HTTP_FORBIDDEN)
 end
 
--- Если не заблокирован - продолжаем обработку
-red:set_keepalive(10000, 100) -- Пул соединений Redis
+ngx.log(ngx.INFO, "IP allowed: ", real_ip)
+red:set_keepalive(10000, 100)

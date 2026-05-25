@@ -1,5 +1,5 @@
-# entrypoint.sh
 #!/bin/sh
+# entrypoint.sh
 #----------------------------------------------------------------------------------------------------------------
 # Скрипт для запуска Nginx с выполнением дополнительных действий
 #
@@ -100,11 +100,14 @@ fi
 sed "s|\${WORKER_PROCESSES}|$WORKERS|g" /etc/nginx/nginx.conf.template > /tmp/nginx.conf
 #
 # Подставить порт и хост из переменной окружения
+sed -i "s|\${COLLECTOR_SERVICE_HOST:-collector}:\${COLLECTOR_TCP_PORT:-6000}|${COLLECTOR_SERVICE_HOST:-collector_service}:${COLLECTOR_TCP_PORT:-6000}|g" /tmp/nginx.conf
 sed -i "s|\${NGINX_PORT}|${NGINX_PORT:-5173}|g" /tmp/nginx.conf
+sed -i "s|\${NGINX_PORT:-5173}|${NGINX_PORT:-80}|g" /tmp/nginx.conf
 sed -i "s|\${NGINX_HOST}|${NGINX_HOST:-localhost}|g" /tmp/nginx.conf
 sed -i "s|\${COLLECTOR_SERVICE_HOST}|${COLLECTOR_SERVICE_HOST:-collector_service}|g" /tmp/nginx.conf
 sed -i "s|\${COLLECTOR_TCP_PORT}|${COLLECTOR_TCP_PORT:-6000}|g" /tmp/nginx.conf
-sed -i "s|\${FRONT_HOST}|${FRONT_HOST:-localhost}|g" /tmp/nginx.conf
+sed -i "s|\${COLLECTOR_SERVICE_HOST}:\${COLLECTOR_TCP_PORT}|${COLLECTOR_SERVICE_HOST:-collector_service}:${COLLECTOR_TCP_PORT:-6000}|g" /tmp/nginx.conf
+sed -i "s|\${FRONT_HOST}|${FRONT_HOST:-172.17.0.1}|g" /tmp/nginx.conf
 sed -i "s|\${FRONT_PORT}|${FRONT_PORT:-5172}|g" /tmp/nginx.conf
 #
 # Проверка, был ли создан nginx.conf

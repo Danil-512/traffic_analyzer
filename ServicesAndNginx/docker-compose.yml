@@ -6,11 +6,12 @@ services:
   # Коллектор логов
   collector_service:
     build:
-      context: .
-      dockerfile: CollectorService/Dockerfile
+      context: ./CollectorService
+      dockerfile: Dockerfile
       #
       args:
         - SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
+        - COLLECTOR_TCP_PORT=${COLLECTOR_TCP_PORT}
     #
     container_name: collector_to_analyzer_container
     #
@@ -19,6 +20,7 @@ services:
     environment:
       - SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
       - COLLECTOR_SERVICE_PORT=${COLLECTOR_SERVICE_PORT}
+      - COLLECTOR_TCP_PORT=${COLLECTOR_TCP_PORT}
       #
       # Для обращений к RabbitMQ. 172.17.0.1 т.к. разные докеркомпоузы
       - RABBITMQ_HOST=${DOCKER_BRIDGE_IP:-172.17.0.1}
@@ -41,6 +43,9 @@ services:
       #
       # Адрес для обращение к редису (чтение заблокированных адресов). Разные докеркомпоузы
       - REDIS_IP=${DOCKER_BRIDGE_IP:-172.17.0.1}:${REDIS_PORT}
+      #
+      - DOCKER=${DOCKER}
+      - DOCKER_BRIDGE_IP=${DOCKER_BRIDGE_IP}
     #
     # Лимиты ресурсов
     deploy:
@@ -55,6 +60,7 @@ services:
     volumes:
       # Логи приложения
       - collector_service_logs:/app/logs
+      - ./.env:/app/.env:ro
     #
     networks:
       - analyzer_network
@@ -127,6 +133,8 @@ services:
       - COLLECTOR_TCP_PORT=${COLLECTOR_TCP_PORT}
       - FRONT_HOST=${FRONT_HOST}
       - FRONT_PORT=${FRONT_PORT}
+      - DOCKER=${DOCKER}
+      - DOCKER_BRIDGE_IP=${DOCKER_BRIDGE_IP}
     #
     # Указание от каких контейнеров зависит nginx - чей запуск ожидать 
     # перед собственным
