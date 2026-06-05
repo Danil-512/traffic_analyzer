@@ -1,3 +1,4 @@
+docker exec -u 0 nginx_to_analyzer_container sh -c 'cat > /etc/nginx/lua/check_ip.lua << "EOF"
 local redis = require "resty.redis"
 local red = redis:new()
 red:set_timeout(500)
@@ -16,39 +17,25 @@ if redis_password ~= "" then
     red:auth(redis_password)
 end
 
--- Просмотр всех заголовков
-local headers = ngx.req.get_headers()
-ngx.log(ngx.WARN, "=== HEADERS ===")
-ngx.log(ngx.WARN, "X-Forwarded-For: ", headers["X-Forwarded-For"] or "none")
-ngx.log(ngx.WARN, "X-Real-IP: ", headers["X-Real-IP"] or "none")
-ngx.log(ngx.WARN, "True-Client-IP: ", headers["True-Client-IP"] or "none")
-ngx.log(ngx.WARN, "CF-Connecting-IP: ", headers["CF-Connecting-IP"] or "none")
-ngx.log(ngx.WARN, "remote_addr: ", ngx.var.remote_addr)
+local client_ip = ngx.var.remote_addr
+ngx.log(ngx.WARN, "Checking IP: ", client_ip)
 
--- Пытаемся определить реальный IP
-local real_ip = headers["X-Forwarded-For"] or 
-                headers["X-Real-IP"] or 
-                headers["True-Client-IP"] or 
-                headers["CF-Connecting-IP"] or 
-                ngx.var.remote_addr
+-- Формируем ключ в формате blocked_ip:192.168.1.1
+local blocked_key = "blocked_ip:" .. client_ip
+local is_blocked, err = red:exists(blocked_key)
 
--- Если X-Forwarded-For содержит несколько IP, берем первый
-if real_ip then
-    real_ip = string.match(real_ip, "([^,]+)")
-end
-
-ngx.log(ngx.WARN, "Real IP detected: ", real_ip)
-
-local is_blocked, err = red:sismember("blocked_ips", real_ip)
 if err then
-    ngx.log(ngx.ERR, "Redis error: ", err)
+    ngx.log(ngx.ERR, "Redis exists error: ", err)
     return
 end
 
 if is_blocked == 1 then
-    ngx.log(ngx.WARN, "!!! BLOCKED IP: ", real_ip)
+    ngx.log(ngx.WARN, "!!! BLOCKED IP: ", client_ip, " (key: ", blocked_key, ")")
     ngx.exit(ngx.HTTP_FORBIDDEN)
 end
 
-ngx.log(ngx.INFO, "IP allowed: ", real_ip)
+ngx.log(ngx.INFO, "IP allowed: ", client_ip)
 red:set_keepalive(10000, 100)
+EOF'
+
+docker compose restart nginx
