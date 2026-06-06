@@ -1,0 +1,140 @@
+{
+  "timestamp": "2026-06-06T06:00:34.220754",
+  "dataset_stats": {
+    "access_backup_20260601_061756_107_normal_use_no_sql.log": {
+      "metadata": {
+        "original_name": "access_backup_20260601_061756_107_normal_use_no_sql.log",
+        "has_sql_context": false,
+        "has_sql_injection": false,
+        "percentage": null,
+        "count": 20260601,
+        "type": "normal_traffic"
+      },
+      "total_entries": 107,
+      "sql_injection_count": 0,
+      "normal_count": 107
+    },
+    "access_backup_20260603_202643_1246_raznoe_atack_no_sqlI.log": {
+      "metadata": {
+        "original_name": "access_backup_20260603_202643_1246_raznoe_atack_no_sqlI.log",
+        "has_sql_context": true,
+        "has_sql_injection": true,
+        "percentage": null,
+        "count": 20260603,
+        "type": "various_attacks_no_injection"
+      },
+      "total_entries": 1244,
+      "sql_injection_count": 0,
+      "normal_count": 1244
+    },
+    "access_backup_20260603_205232_1000_5proc_sql_noI.log": {
+      "metadata": {
+        "original_name": "access_backup_20260603_205232_1000_5proc_sql_noI.log",
+        "has_sql_context": true,
+        "has_sql_injection": false,
+        "percentage": 5,
+        "count": 20260603,
+        "type": "sql_context_no_injection"
+      },
+      "total_entries": 1016,
+      "sql_injection_count": 0,
+      "normal_count": 1016
+    },
+    "access_backup_20260603_205232_500_85proc_sqlI.log": {
+      "metadata": {
+        "original_name": "access_backup_20260603_205232_500_85proc_sqlI.log",
+        "has_sql_context": true,
+        "has_sql_injection": true,
+        "percentage": 85,
+        "count": 20260603,
+        "type": "sql_injection"
+      },
+      "total_entries": 502,
+      "sql_injection_count": 502,
+      "normal_count": 0
+    },
+    "access_backup_20260603_205232_500_no_sql.log": {
+      "metadata": {
+        "original_name": "access_backup_20260603_205232_500_no_sql.log",
+        "has_sql_context": false,
+        "has_sql_injection": false,
+        "percentage": null,
+        "count": 20260603,
+        "type": "normal"
+      },
+      "total_entries": 501,
+      "sql_injection_count": 0,
+      "normal_count": 501
+    },
+    "access_backup_sqlmap_20260601_070654_7870_100proc_sqlI.log": {
+      "metadata": {
+        "original_name": "access_backup_sqlmap_20260601_070654_7870_100proc_sqlI.log",
+        "has_sql_context": true,
+        "has_sql_injection": true,
+        "percentage": 100,
+        "count": 20260601,
+        "type": "sqlmap_automated"
+      },
+      "total_entries": 7876,
+      "sql_injection_count": 7876,
+      "normal_count": 0
+    }
+  },
+  "model_params": {
+    "bootstrap": true,
+    "ccp_alpha": 0.0,
+    "class_weight": "balanced",
+    "criterion": "gini",
+    "max_depth": 20,
+    "max_features": "sqrt",
+    "max_leaf_nodes": null,
+    "max_samples": null,
+    "min_impurity_decrease": 0.0,
+    "min_samples_leaf": 1,
+    "min_samples_split": 10,
+    "min_weight_fraction_leaf": 0.0,
+    "monotonic_cst": null,
+    "n_estimators": 200,
+    "n_jobs": -1,
+    "oob_score": false,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "feature_count": 33,
+  "feature_names": [
+    "union",
+    "or_condition",
+    "and_condition",
+    "comment",
+    "semicolon",
+    "select",
+    "insert",
+    "update",
+    "delete",
+    "drop",
+    "sleep",
+    "information_schema",
+    "union_select",
+    "xp_cmdshell",
+    "exec",
+    "boolean_blind",
+    "time_based",
+    "error_based",
+    "stacked_queries",
+    "encoding_attempt",
+    "hex_encoding",
+    "union_all",
+    "order_by",
+    "into_outfile",
+    "special_chars_ratio",
+    "request_length",
+    "space_count",
+    "has_hex",
+    "operators_count",
+    "is_error_status",
+    "special_to_length_ratio",
+    "numbers_count",
+    "has_suspicious_keywords"
+  ]
+}
