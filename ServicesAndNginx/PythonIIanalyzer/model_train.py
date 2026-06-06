@@ -121,7 +121,7 @@ class SQLInjectionTrainer:
         f1 = f1_score(data['y_test'], y_pred)
         roc_auc = roc_auc_score(data['y_test'], y_pred_proba)
         
-        logger.info(f"\n📊 Основные метрики:")
+        logger.info(f"\n Основные метрики:")
         logger.info(f"  Accuracy:  {accuracy:.4f}")
         logger.info(f"  Precision: {precision:.4f}")
         logger.info(f"  Recall:    {recall:.4f}")
@@ -129,17 +129,17 @@ class SQLInjectionTrainer:
         logger.info(f"  ROC-AUC:   {roc_auc:.4f}")
         
         # Cross-validation
-        logger.info(f"\n📈 Cross-validation (5-fold):")
+        logger.info(f"\n Cross-validation (5-fold):")
         cv_scores = cross_val_score(self.model, data['X_train'], data['y_train'], cv=5, scoring='roc_auc')
         logger.info(f"  CV ROC-AUC: {cv_scores.mean():.4f} (+/- {cv_scores.std()*2:.4f})")
         
         # Classification report
-        logger.info(f"\n📋 Classification Report:")
+        logger.info(f"\n Classification Report:")
         logger.info(f"\n{classification_report(data['y_test'], y_pred, target_names=['Normal', 'SQL Injection'])}")
         
         # Confusion matrix
         cm = confusion_matrix(data['y_test'], y_pred)
-        logger.info(f"\n📊 Confusion Matrix:")
+        logger.info(f"\n Confusion Matrix:")
         logger.info(f"  TN={cm[0,0]}, FP={cm[0,1]}")
         logger.info(f"  FN={cm[1,0]}, TP={cm[1,1]}")
         
@@ -174,7 +174,7 @@ class SQLInjectionTrainer:
         # Сортировка по важности
         indices = np.argsort(importance)[::-1]
         
-        logger.info(f"\n🎯 TOP-15 важных признаков:")
+        logger.info(f"\n TOP-15 важных признаков:")
         logger.info("="*50)
         for i, idx in enumerate(indices[:15]):
             logger.info(f"{i+1:2d}. {feature_names[idx]:30s} : {importance[idx]:.4f}")
@@ -192,22 +192,22 @@ class SQLInjectionTrainer:
         # Сохранение модели
         with open(model_path, 'wb') as f:
             pickle.dump(self.model, f)
-        logger.info(f"\n✅ Модель сохранена: {model_path}")
+        logger.info(f"\n Модель сохранена: {model_path}")
         
         # Сохранение скейлера
         with open(scaler_path, 'wb') as f:
             pickle.dump(self.preprocessor.scaler, f)
-        logger.info(f"✅ Скейлер сохранен: {scaler_path}")
+        logger.info(f" Скейлер сохранен: {scaler_path}")
         
         # Сохранение истории обучения
         with open(history_path, 'w') as f:
             json.dump(self.training_history, f, indent=2, ensure_ascii=False)
-        logger.info(f"✅ История обучения сохранена: {history_path}")
+        logger.info(f" История обучения сохранена: {history_path}")
         
         # Сохранение feature extractor
         with open('feature_extractor.pkl', 'wb') as f:
             pickle.dump(self.feature_extractor, f)
-        logger.info(f"✅ Feature extractor сохранен: feature_extractor.pkl")
+        logger.info(f" Feature extractor сохранен: feature_extractor.pkl")
     
     def plot_confusion_matrix(self, data: dict, save_path: str = 'confusion_matrix.png'):
         """Визуализация матрицы ошибок"""
@@ -223,7 +223,7 @@ class SQLInjectionTrainer:
         plt.xlabel('Predicted Label')
         plt.tight_layout()
         plt.savefig(save_path, dpi=100)
-        logger.info(f"✅ Матрица ошибок сохранена: {save_path}")
+        logger.info(f" Матрица ошибок сохранена: {save_path}")
         plt.close()
     
     def plot_feature_importance(self, save_path: str = 'feature_importance.png'):
@@ -241,13 +241,13 @@ class SQLInjectionTrainer:
         plt.gca().invert_yaxis()
         plt.tight_layout()
         plt.savefig(save_path, dpi=100)
-        logger.info(f"✅ График важности признаков сохранен: {save_path}")
+        logger.info(f" График важности признаков сохранен: {save_path}")
         plt.close()
 
 
 if __name__ == "__main__":
     # Путь к директории с датасетами
-    DATASET_DIR = "logs"  # Папка с вашими логами
+    DATASET_DIR = "logs"  # Папка с логами
     
     # Создаем тренер и обучаем модель
     trainer = SQLInjectionTrainer(

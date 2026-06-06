@@ -221,7 +221,7 @@ class DataPreprocessor:
         print("="*60)
         
         for filename, stats in self.dataset_stats.items():
-            print(f"\n📁 {filename}")
+            print(f"\n {filename}")
             print(f"   Тип: {stats['metadata']['type']}")
             print(f"   Всего записей: {stats['total_entries']}")
             print(f"   SQL инъекции: {stats['sql_injection_count']} ({stats['sql_injection_count']/stats['total_entries']*100:.1f}%)")

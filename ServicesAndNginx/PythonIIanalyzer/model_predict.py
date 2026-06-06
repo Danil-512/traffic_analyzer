@@ -103,7 +103,7 @@ class SQLInjectionDetector:
         
         # Статистика пакета
         threats = sum(1 for r in results if r['is_sql_injection'])
-        logger.info(f"\n📊 Статистика пакета: {threats}/{total} запросов содержат SQL инъекции ({threats/total*100:.1f}%)")
+        logger.info(f"\n Статистика пакета: {threats}/{total} запросов содержат SQL инъекции ({threats/total*100:.1f}%)")
         
         return results
     
@@ -174,8 +174,8 @@ if __name__ == "__main__":
     
     for log in test_logs:
         result = detector.predict(log)
-        print(f"\n📝 URI: {log['uri']}")
-        print(f"   Результат: {'🔴 SQL ИНЪЕКЦИЯ' if result['is_sql_injection'] else '✅ Нормальный'}")
+        print(f"\n URI: {log['uri']}")
+        print(f"   Результат: {' SQL ИНЪЕКЦИЯ' if result['is_sql_injection'] else ' Нормальный'}")
         print(f"   Уровень угрозы: {result['threat_level']}")
         print(f"   Вероятность SQL: {result['probability_sql']:.3f}")
     

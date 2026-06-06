@@ -41,14 +41,14 @@ def test_with_real_data():
         is_correct = result['is_sql_injection'] == expected
         correct += is_correct
         
-        status_icon = "✅" if is_correct else "❌"
-        prediction = "🔴 SQL" if result['is_sql_injection'] else "🟢 NORMAL"
+        status_icon = "Y" if is_correct else "❌"
+        prediction = "N SQL" if result['is_sql_injection'] else " NORMAL"
         expected_str = "SQL" if expected else "NORMAL"
         
         print(f"{status_icon} {prediction} (Expected: {expected_str}) | Confidence: {result['confidence']:.3f} | URI: {uri[:50]}")
     
     accuracy = correct / len(test_cases)
-    print(f"\n📊 Точность на тестовом наборе: {accuracy*100:.1f}% ({correct}/{len(test_cases)})")
+    print(f"\n Точность на тестовом наборе: {accuracy*100:.1f}% ({correct}/{len(test_cases)})")
 
 if __name__ == "__main__":
     test_with_real_data()
